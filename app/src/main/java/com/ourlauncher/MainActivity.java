@@ -50,10 +50,13 @@ public class MainActivity extends AppCompatActivity {
         LayoutInflater inflater = LayoutInflater.from(this);
         View homeView = inflater.inflate(R.layout.content_home, contentFrame, false);
         View versionsView = inflater.inflate(R.layout.content_versions, contentFrame, false);
+        View accountView = inflater.inflate(R.layout.content_account, contentFrame, false);
 
         contentFrame.addView(homeView);
         contentFrame.addView(versionsView);
+        contentFrame.addView(accountView);
         versionsView.setVisibility(View.GONE);
+        accountView.setVisibility(View.GONE);
 
         // Wire up Home tab
         homeSelectedVersion = homeView.findViewById(R.id.home_selected_version);
@@ -71,15 +74,50 @@ public class MainActivity extends AppCompatActivity {
         adapter = new VersionAdapter(this, versions, this::onVersionSelected);
         versionsList.setAdapter(adapter);
 
+        // Wire up Account tab
+        TextView accountStatus = accountView.findViewById(R.id.account_status);
+        com.google.android.material.textfield.TextInputEditText accountUsernameInput =
+                accountView.findViewById(R.id.account_username_input);
+        MaterialButton accountSaveButton = accountView.findViewById(R.id.account_save_button);
+
+        android.content.SharedPreferences prefs = getSharedPreferences("ourlauncher_prefs", MODE_PRIVATE);
+        String savedUsername = prefs.getString("local_username", null);
+        String savedUuid = prefs.getString("local_uuid", null);
+        if (savedUsername != null && savedUuid != null) {
+            accountUsernameInput.setText(savedUsername);
+            accountStatus.setText("Using local account: " + savedUsername + "\nUUID: " + savedUuid);
+        }
+
+        accountSaveButton.setOnClickListener(v -> {
+            String typed = accountUsernameInput.getText() != null ? accountUsernameInput.getText().toString() : "";
+            LocalAccount account = LocalAccount.create(typed);
+            if (account == null) {
+                accountStatus.setText("Invalid username — use 3-16 letters, numbers, or underscores.");
+                return;
+            }
+            prefs.edit()
+                    .putString("local_username", account.username)
+                    .putString("local_uuid", account.uuid)
+                    .apply();
+            accountStatus.setText("Using local account: " + account.username + "\nUUID: " + account.uuid);
+        });
+
         bottomNav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
             if (id == R.id.nav_home) {
                 homeView.setVisibility(View.VISIBLE);
                 versionsView.setVisibility(View.GONE);
+                accountView.setVisibility(View.GONE);
                 return true;
             } else if (id == R.id.nav_versions) {
                 homeView.setVisibility(View.GONE);
                 versionsView.setVisibility(View.VISIBLE);
+                accountView.setVisibility(View.GONE);
+                return true;
+            } else if (id == R.id.nav_account) {
+                homeView.setVisibility(View.GONE);
+                versionsView.setVisibility(View.GONE);
+                accountView.setVisibility(View.VISIBLE);
                 return true;
             }
             return false;

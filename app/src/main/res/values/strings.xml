@@ -3,4 +3,5 @@
     <string name="app_name">Our Launcher</string>
     <string name="nav_home">Home</string>
     <string name="nav_versions">Versions</string>
+    <string name="nav_account">Account</string>
 </resources>
