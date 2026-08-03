@@ -133,6 +133,66 @@ public class VersionManifestFetcher {
         return allowed;
     }
 
+    /**
+     * Reads the per-version JSON's "assetIndex" pointer, then fetches that
+     * index itself and returns every asset object it lists (sounds,
+     * textures, language files, etc — everything under Minecraft's
+     * "resources" system). Each object's own hash doubles as its SHA-1,
+     * which is also how Mojang's CDN addresses it:
+     * https://resources.download.minecraft.net/<hash[0:2]>/<hash>
+     */
+    public static List<AssetObject> fetchAssetObjects(String versionUrl) throws IOException {
+        String versionJson = httpGetString(versionUrl);
+        String assetIndexUrl;
+        try {
+            JSONObject root = new JSONObject(versionJson);
+            assetIndexUrl = root.getJSONObject("assetIndex").getString("url");
+        } catch (Exception e) {
+            throw new IOException("Failed to find assetIndex in version metadata", e);
+        }
+
+        String indexJson = httpGetString(assetIndexUrl);
+        List<AssetObject> result = new ArrayList<>();
+        try {
+            JSONObject indexRoot = new JSONObject(indexJson);
+            JSONObject objects = indexRoot.getJSONObject("objects");
+            java.util.Iterator<String> keys = objects.keys();
+            while (keys.hasNext()) {
+                String virtualPath = keys.next();
+                JSONObject obj = objects.getJSONObject(virtualPath);
+                result.add(new AssetObject(
+                        obj.getString("hash"),
+                        obj.getLong("size")
+                ));
+            }
+        } catch (Exception e) {
+            throw new IOException("Failed to parse asset index", e);
+        }
+        return result;
+    }
+
+
+    /**
+     * Reads the per-version JSON for the two pieces needed to actually
+     * construct a launch: which class to run (mainClass — almost always
+     * net.minecraft.client.main.Main for anything reasonably modern), and
+     * the asset index's own id (used for the game's --assetIndex argument,
+     * distinct from the asset index's download URL we already use in
+     * fetchAssetObjects).
+     */
+    public static LaunchInfo fetchLaunchInfo(String versionUrl) throws IOException {
+        String json = httpGetString(versionUrl);
+        try {
+            JSONObject root = new JSONObject(json);
+            String mainClass = root.getString("mainClass");
+            String assetIndexId = root.getJSONObject("assetIndex").getString("id");
+            return new LaunchInfo(mainClass, assetIndexId);
+        } catch (Exception e) {
+            throw new IOException("Failed to parse launch info", e);
+        }
+    }
+
+
     private static String httpGetString(String urlStr) throws IOException {
         HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
         conn.setRequestMethod("GET");
@@ -148,6 +208,16 @@ public class VersionManifestFetcher {
             return sb.toString();
         } finally {
             conn.disconnect();
+        }
+    }
+
+    public static class LaunchInfo {
+        public final String mainClass;
+        public final String assetIndexId;
+
+        LaunchInfo(String mainClass, String assetIndexId) {
+            this.mainClass = mainClass;
+            this.assetIndexId = assetIndexId;
         }
     }
 
