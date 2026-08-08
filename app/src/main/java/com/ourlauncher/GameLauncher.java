@@ -36,8 +36,8 @@ public class GameLauncher {
     public static void launch(Context context, VersionEntry entry, File clientJar, LaunchListener listener) {
         new Thread(() -> {
             try {
-                VersionManifestFetcher.LaunchMetadata meta =
-                        VersionManifestFetcher.fetchLaunchMetadata(entry.url);
+                VersionManifestFetcher.LaunchInfo meta =
+                        VersionManifestFetcher.fetchLaunchInfo(entry.url);
 
                 int javaVersion = RuntimeManager.isVersionAvailable(meta.javaMajorVersion)
                         ? meta.javaMajorVersion
