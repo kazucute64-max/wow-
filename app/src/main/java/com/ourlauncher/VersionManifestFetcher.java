@@ -173,12 +173,13 @@ public class VersionManifestFetcher {
 
 
     /**
-     * Reads the per-version JSON for the two pieces needed to actually
-     * construct a launch: which class to run (mainClass — almost always
-     * net.minecraft.client.main.Main for anything reasonably modern), and
-     * the asset index's own id (used for the game's --assetIndex argument,
-     * distinct from the asset index's download URL we already use in
-     * fetchAssetObjects).
+     * Reads the per-version JSON for everything needed to actually construct
+     * a launch: which class to run (mainClass — almost always
+     * net.minecraft.client.main.Main for anything reasonably modern), the
+     * asset index's own id (used for the game's --assetIndex argument,
+     * distinct from the asset index's download URL used in
+     * fetchAssetObjects), and which major Java version the version needs
+     * (used to pick a matching prebuilt runtime in RuntimeManager).
      */
     public static LaunchInfo fetchLaunchInfo(String versionUrl) throws IOException {
         String json = httpGetString(versionUrl);
@@ -186,7 +187,11 @@ public class VersionManifestFetcher {
             JSONObject root = new JSONObject(json);
             String mainClass = root.getString("mainClass");
             String assetIndexId = root.getJSONObject("assetIndex").getString("id");
-            return new LaunchInfo(mainClass, assetIndexId);
+            // Very old versions (pre-1.6ish) have no "javaVersion" field at all — default to 8.
+            int javaMajorVersion = root.has("javaVersion")
+                    ? root.getJSONObject("javaVersion").getInt("majorVersion")
+                    : 8;
+            return new LaunchInfo(mainClass, assetIndexId, javaMajorVersion);
         } catch (Exception e) {
             throw new IOException("Failed to parse launch info", e);
         }
@@ -214,10 +219,12 @@ public class VersionManifestFetcher {
     public static class LaunchInfo {
         public final String mainClass;
         public final String assetIndexId;
+        public final int javaMajorVersion;
 
-        LaunchInfo(String mainClass, String assetIndexId) {
+        LaunchInfo(String mainClass, String assetIndexId, int javaMajorVersion) {
             this.mainClass = mainClass;
             this.assetIndexId = assetIndexId;
+            this.javaMajorVersion = javaMajorVersion;
         }
     }
 
